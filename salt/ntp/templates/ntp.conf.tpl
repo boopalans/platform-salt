@@ -25,7 +25,7 @@ filegen clockstats file clockstats type day enable
 #server ntp.ubuntu.com
 
 {% for ntp_server in ntp_servers -%}
-server {{ ntp_server }}
+server {{ ntp_server }} iburst
 {% endfor %}
 
 # Access control configuration; see /usr/share/doc/ntp-doc/html/accopt.html for
