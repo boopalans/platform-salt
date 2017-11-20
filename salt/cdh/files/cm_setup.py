@@ -213,7 +213,7 @@ def install_parcel(cloudera_manager, cluster, product, parcel_repo, parcel_versi
     cm_config = cloudera_manager.get_config(view='full')
     repo_config = cm_config['REMOTE_PARCEL_REPO_URLS']
     repo_config_value = repo_config.value or repo_config.default
-    cloudera_manager.update_config({'REMOTE_PARCEL_REPO_URLS': "%s,%s" % (repo_config_value, parcel_repo),
+    cloudera_manager.update_config({'REMOTE_PARCEL_REPO_URLS': "%s" % ( parcel_repo),
                                     'PARCEL_DISTRIBUTE_RATE_LIMIT_KBS_PER_SECOND': '1048576'})
 
     # update_config doesn't return a command object we can wait on, however the
