@@ -238,10 +238,10 @@ orchestrate-pnda-install_remove_new_node_markers:
     - timeout: 120
     - queue: True
 
-orchestrate-pnda_kernel_reboot:
-  salt.state:
-    - tgt: '*'
-    - tgt_type: compound
-    - sls: reboot.kernel_reboot
-    - timeout: 120
-    - queue: True
+#orchestrate-pnda_kernel_reboot:
+#  salt.state:
+#    - tgt: '*'
+#    - tgt_type: compound
+#    - sls: reboot.kernel_reboot
+#    - timeout: 120
+#    - queue: True
