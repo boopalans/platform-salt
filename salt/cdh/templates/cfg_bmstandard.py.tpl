@@ -39,13 +39,13 @@ CMS_CFG = {
          {"type": "ALERTPUBLISHER",
           "config": {'mgmt_log_dir': '/var/log/pnda/cdh/cloudera-scm-alertpublisher'}},
          {"type": "EVENTSERVER",
-          "config": {'eventserver_index_dir': '/data0/var/lib/cloudera-scm-eventserver',
+          "config": {'eventserver_index_dir': '/mnt/cloudera-scm-eventserver',
                      'mgmt_log_dir': '/var/log/pnda/cdh/cloudera-scm-eventserver'}},
          {"type": "HOSTMONITOR",
-          "config": {'firehose_storage_dir': '/data0/var/lib/cloudera-host-monitor',
+          "config": {'firehose_storage_dir': '/mnt/cloudera-host-monitor',
                      'mgmt_log_dir': '/var/log/pnda/cdh/cloudera-scm-firehose'}},
          {"type": "SERVICEMONITOR",
-          "config": {'firehose_storage_dir': '/data0/var/lib/cloudera-service-monitor',
+          "config": {'firehose_storage_dir': '/mnt/cloudera-service-monitor',
                      'mgmt_log_dir': '/var/log/pnda/cdh/cloudera-scm-firehose'}}]
 }
 
@@ -57,7 +57,7 @@ OOZIE_CFG = {"service": "OOZIE",
                         "type": "OOZIE_SERVER",
                         "target": "MGR02"}],
              "role_cfg": [{"type": "OOZIE_SERVER",
-                           "config": {'oozie_data_dir': '/data0/var/lib/oozie/data',
+                           "config": {'oozie_data_dir': '/mnt/hadoop/oozie',
                                       'oozie_log_dir': '/var/log/pnda/oozie',
                                       'oozie_database_type': 'mysql',
                                       'oozie_database_host': '{{ mysql_host }}',
@@ -78,8 +78,8 @@ ZK_CFG = {"service": "ZOOKEEPER",
                      "type": "SERVER",
                      "target": "EDGE"}],
           "role_cfg": [{"type": "SERVER",
-                        "config": {'dataDir': '/data0/var/lib/zookeeper',
-                                   'dataLogDir': '/data0/var/lib/zookeeper',
+                        "config": {'dataDir': '/mnt/hadoop/zookeeper',
+                                   'dataLogDir': '/mnt/hadoop/zookeeper',
                                    'zk_server_log_dir': '/var/log/pnda/zookeeper',
                                    'log_directory_free_space_absolute_thresholds': '{"warning": "1050000000","critical": "900000000"}'}}]}
 
@@ -124,7 +124,7 @@ MAPRED_CFG = {
             "config":
                 {
                     'yarn_nodemanager_heartbeat_interval_ms': 100,
-                    'yarn_nodemanager_local_dirs': '/var/yarn/nm',
+                    'yarn_nodemanager_local_dirs': '/mnt/hadoop/yarn/nm',
                     'yarn_nodemanager_log_dirs': '/var/log/pnda/hadoop-yarn/container',
                     'node_manager_log_dir': '/var/log/pnda/hadoop-yarn',
                     'yarn_nodemanager_resource_cpu_vcores': '14',
@@ -147,7 +147,8 @@ MAPRED_CFG = {
                     'resourcemanager_config_safety_valve':
                         '<property> \r\n<name>yarn.resourcemanager.proxy-user-privileges.enabled</name>\r\n<value>true</value>\r\n</property>',
                     'resource_manager_java_heapsize': '4294967296',
-                    'resource_manager_log_dir': '/var/log/pnda/hadoop-yarn'
+                    'resource_manager_log_dir': '/var/log/pnda/hadoop-yarn',
+                    'resourcemanager_fair_scheduler_configuration': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?> <allocations> <queue name="root"> <weight>1.0</weight> <schedulingPolicy>fair</schedulingPolicy> <aclSubmitApps> </aclSubmitApps> <aclAdministerApps>pnda </aclAdministerApps><queue name="default"> <weight>1.0</weight> <schedulingPolicy>fair</schedulingPolicy> <aclSubmitApps>pnda </aclSubmitApps> </queue> <queue name="applications" type="parent"> <weight>0.0</weight> <schedulingPolicy>fair</schedulingPolicy> <queue name="dev"> <weight>0.0</weight> <schedulingPolicy>fair</schedulingPolicy> <aclSubmitApps> dev,prod</aclSubmitApps> </queue> <queue name="prod"> <weight>1.0</weight> <schedulingPolicy>fair</schedulingPolicy> <aclSubmitApps> prod</aclSubmitApps> </queue> </queue> </queue> <defaultQueueSchedulingPolicy>fair</defaultQueueSchedulingPolicy> <queuePlacementPolicy> <rule name="specified" create="false"/> <rule name="default"/> </queuePlacementPolicy> </allocations>'
                 }
         }
     ]
@@ -155,11 +156,11 @@ MAPRED_CFG = {
 
 SWIFT_CONFIG = """\r\n<property><name>fs.swift.impl</name><value>org.apache.hadoop.fs.swift.snative.SwiftNativeFileSystem</value></property>
                   \r\n<property><name>fs.swift.service.pnda.auth.url</name><value>{{ keystone_auth_url }}</value></property>
-                  \r\n<property><name>fs.swift.service.pnda.username</name><value>{{ keystone_user }}</value></property>
-                  \r\n<property><name>fs.swift.service.pnda.tenant</name><value>{{ keystone_tenant }}</value></property>
-                  \r\n<property><name>fs.swift.service.pnda.region</name><value>{{ region }}</value></property>
+                  \r\n<property><name>fs.swift.service.pnda.username</name><value>{{ keystone_user|e }}</value></property>
+                  \r\n<property><name>fs.swift.service.pnda.tenant</name><value>{{ keystone_tenant|e }}</value></property>
+                  \r\n<property><name>fs.swift.service.pnda.region</name><value>{{ region|e }}</value></property>
                   \r\n<property><name>fs.swift.service.pnda.public</name><value>true</value></property>
-                  \r\n<property><name>fs.swift.service.pnda.password</name><value>{{ keystone_password }}</value></property>"""
+                  \r\n<property><name>fs.swift.service.pnda.password</name><value>{{ keystone_password|e }}</value></property>"""
 
 S3_CONFIG = """\r\n<property><name>fs.s3a.access.key</name><value>{{ aws_key }}</value></property>
                \r\n<property><name>fs.s3a.secret.key</name><value>{{ aws_secret_key }}</value></property>"""
@@ -171,7 +172,7 @@ HDFS_CFG = {
         {
             'dfs_replication': 2,
             'core_site_safety_valve':
-                ('<property> <name>hadoop.tmp.dir</name><value>/data0/tmp/hadoop-${user.name}</value></property>\r\n\r\n'
+                ('<property> <name>hadoop.tmp.dir</name><value>/mnt/hadoop-tmp/${user.name}</value></property>\r\n\r\n'
                  '<property> \r\n<name>hadoop.proxyuser.yarn.hosts</name>\r\n<value>*</value>\r\n</property>\r\n\r\n'
                  '<property>\r\n<name>hadoop.proxyuser.yarn.groups</name>\r\n<value>*</value>\r\n</property>') + SWIFT_CONFIG + S3_CONFIG,
             'dfs_block_local_path_access_user': 'impala'
@@ -223,7 +224,7 @@ HDFS_CFG = {
         [
             {
                 "type": "NAMENODE",
-                "config": {'dfs_name_dir_list': '/data0/nn',
+                "config": {'dfs_name_dir_list': '/mnt/hadoop/hdfs/nn',
                            'dfs_namenode_handler_count': 60,
                            'dfs_namenode_service_handler_count': 60,
                            'namenode_log_dir': '/var/log/pnda/hadoop/nn',
@@ -232,15 +233,15 @@ HDFS_CFG = {
             },
             {
                 "type": "DATANODE",
-                "config": {'dfs_data_dir_list': '/data0/dn,/data1/dn,/data2/dn,/data3/dn,/data4/dn', 'datanode_log_dir': '/var/log/pnda/hadoop/dn'}
+                "config": {'dfs_data_dir_list': '{{ data_volumes }}', 'datanode_log_dir': '/var/log/pnda/hadoop/dn'}
             },
             {
                 "type": "JOURNALNODE",
-                "config": {'dfs_journalnode_edits_dir':'/data0/jn/data'}
+                "config": {'dfs_journalnode_edits_dir':'/mnt/hadoop/hdfs/jn'}
             },
             {
                 "type": "SECONDARYNAMENODE",
-                "config": {'fs_checkpoint_dir_list': '/data0/snn',
+                "config": {'fs_checkpoint_dir_list': '/mnt/hadoop/hdfs/snn',
                            'secondarynamenode_log_dir': '/var/log/pnda/hadoop/snn',
                            'secondary_namenode_java_heapsize': 3221225472}
             },
@@ -435,7 +436,8 @@ SPARK_CFG = {
     'service': 'SPARK_ON_YARN',
     'name': 'spark_on_yarn',
     'config': {
-        'yarn_service': MAPRED_CFG['name']
+        'yarn_service': MAPRED_CFG['name'],
+        'spark-conf/spark-env.sh_service_safety_valve': "SPARK_PYTHON_PATH={{ app_packages_dir }}/lib/python2.7/site-packages\nexport PYSPARK_DRIVER_PYTHON=/opt/pnda/anaconda/bin/python\nexport PYSPARK_PYTHON=/opt/pnda/anaconda/bin/python\nexport PYTHONPATH=\"$PYTHONPATH:$SPARK_PYTHON_PATH\""
     },
     'roles': [
         {'name': 'spark', 'type': 'SPARK_YARN_HISTORY_SERVER', 'target': 'MGR02'},
@@ -444,6 +446,7 @@ SPARK_CFG = {
     'role_cfg': [
         {'type': 'SPARK_YARN_HISTORY_SERVER', 'config': {}},
         {'type': 'GATEWAY', 'config': {
-            'spark_history_enabled': 'false'}}
+            'spark_history_enabled': 'false',
+            'spark-conf/spark-defaults.conf_client_config_safety_valve': 'spark.yarn.appMasterEnv.PYSPARK_PYTHON=/opt/pnda/anaconda/bin/python\nspark.yarn.appMasterEnv.PYSPARK_DRIVER_PYTHON=/opt/pnda/anaconda/bin/python'}}
     ]
 }

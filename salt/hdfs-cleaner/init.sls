@@ -7,13 +7,23 @@
 {% set archive_type = salt['pillar.get']('pnda.archive_type', 'swift') %}
 {% set archive_service = salt['pillar.get']('pnda.archive_service', '.pnda') %}
 
+{% set hadoop_distro = grains['hadoop.distro'] %}
 {% set pnda_user  = pillar['pnda']['user'] %}
 {% set gobblin_work_dir = '/user/' + pnda_user + '/gobblin/work' %}
+{% set flink_job_dir = '/' + pnda_user + '/flink/completed-jobs' %}
 
 {% set install_dir = pillar['pnda']['homedir'] %}
 
 {% set virtual_env_dir = install_dir + "/" + app_directory_name + "/venv" %}
 {% set pip_index_url = pillar['pip']['index_url'] %}
+
+{% if grains['hadoop.distro'] == 'HDP' %}
+{% set streaming_dirs_to_clean = '"/user/*/.sparkStaging/", "/app-logs/*/logs/", "/spark-history/", "/user/*/.flink/"' %}
+{% set general_dirs_to_clean = '"/mr-history/done/"' %}
+{% else %}
+{% set streaming_dirs_to_clean = '"/user/*/.sparkStaging/", "/tmp/logs/*/logs/", "/user/spark/applicationHistory/", "/user/*/.flink/"' %}
+{% set general_dirs_to_clean = '"/user/history/done/"' %}
+{% endif %}
 
 include:
   - python-pip
@@ -24,13 +34,13 @@ hdfs-cleaner-dl-and-extract:
     - source: {{ packages_server }}/{{ app_package }}
     - source_hash: {{ packages_server }}/{{ app_package }}.sha512.txt
     - archive_format: tar
-    - tar_options: v
+    - tar_options: ''
     - if_missing: {{ install_dir }}/{{ app_directory_name }}
 
 hdfs-cleaner-create-venv:
   virtualenv.managed:
     - name: {{ virtual_env_dir }}
-    - requirements: salt://hdfs-cleaner/files/requirements.txt
+    - requirements: {{ install_dir }}/{{ app_directory_name }}/requirements.txt
     - python: python2
     - index_url: {{ pip_index_url }}
     - require:
@@ -50,46 +60,39 @@ hdfs-cleaner-copy_config:
     - source: salt://hdfs-cleaner/templates/properties.json.tpl
     - template: jinja
     - defaults:
+        hadoop_distro: {{ hadoop_distro }}
         container: {{ archive_container }}
         repo_path: {{ pnda_cluster }}
         archive_type: '{{ archive_type }}'
         archive_service: '{{ archive_service }}'
         gobblin_work_dir: {{ gobblin_work_dir }}
+        flink_job_dir: {{ flink_job_dir }}
+        streaming_dirs_to_clean: '{{ streaming_dirs_to_clean }}'
+        general_dirs_to_clean: '{{ general_dirs_to_clean }}'
     - require:
       - file: hdfs-cleaner-create_link
 
 hdfs-cleaner-copy_service:
   file.managed:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: /etc/init/hdfs-cleaner.conf
-    - source: salt://hdfs-cleaner/templates/hdfs-cleaner.conf.tpl
-{% elif grains['os'] == 'RedHat' %}
     - name: /usr/lib/systemd/system/hdfs-cleaner.service
     - source: salt://hdfs-cleaner/templates/hdfs-cleaner.service.tpl
-{%- endif %}
     - template: jinja
     - defaults:
         install_dir: {{ install_dir }}
 
-{% if grains['os'] == 'RedHat' %}
 hdfs-cleaner-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload
-{%- endif %}
 
 hdfs-cleaner-add_crontab_entry:
   cron.present:
     - identifier: HDFS-CLEANER
-{% if grains['os'] == 'Ubuntu' %}
-    - name: /sbin/start hdfs-cleaner
-{% elif grains['os'] == 'RedHat' %}
     - name: /bin/systemctl start hdfs-cleaner
-{%- endif %}
     - user: root
     - hour: '*/4'
     - minute: 0
 
-/data0/tmp/hadoop-hdfs:
+/mnt/hadoop-tmp:
   file.directory:
     - user: root
     - mode: 777

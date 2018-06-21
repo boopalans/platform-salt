@@ -1,10 +1,11 @@
 {
+  "hadoop_distro": "{{hadoop_distro}}",
   "clustername": "{{clustername}}",
   "edge_node": "{{ edge_node }}",
   "user_interfaces": [
     {
-      "name": "Cloudera Manager",
-      "link": "{{ cloudera_manager_link }}"
+      "name": "Hadoop Cluster Manager",
+      "link": "{{ hadoop_manager_link }}"
     },
     {
       "name": "Kafka Manager",
@@ -25,6 +26,10 @@
     {
       "name": "Jupyter",
       "link": "{{ jupyter_link }}"
+    },
+    {
+      "name": "Flink",
+      "link": "{{ flink_link }}"
     }
   ],
   "frontend": {
@@ -36,5 +41,5 @@
       "host": "{{data_manager_host}}", "port": "{{data_manager_port}}"
     }
   },
-  "disable_ldap_login": true
+  "login_mode": "{{ login_mode }}"
 }

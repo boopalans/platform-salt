@@ -1,3 +1,5 @@
+{% set flavor_cfg = pillar['pnda_flavor']['states'][sls] %}
+
 {% set es_p = pillar['elasticsearch'] %}
 {% do es_p.update({'directory': es_p.directory + '/elasticsearch-' + es_p.version}) %}
 
@@ -19,7 +21,7 @@ elasticsearch-elasticsearch:
 
 elasticsearch-create_elasticsearch_datadir:
   file.directory:
-    - name: {{ es_p.datadir }}
+    - name: {{ flavor_cfg.datadir }}
     - user: elasticsearch
     - group: elasticsearch
     - dir_mode: 755
@@ -61,37 +63,29 @@ elasticsearch-dl_and_extract_elasticsearch:
   archive.extracted:
     - name: {{ es_p.directory }}
     - source: {{ elasticsearch_url }}
-    - source_hash: {{ elasticsearch_url }}.sha1.txt
+    - source_hash: {{ elasticsearch_url }}.sha512
     - user: elasticsearch
     - group: elasticsearch
     - archive_format: tar
     - tar_options: --strip-components=1
     - if_missing: {{ es_p.directory }}/bin/elasticsearch
 
-{% if grains['os'] == 'Ubuntu' %}
-/etc/init/elasticsearch.conf:
-  file.managed:
-    - source: salt://elasticsearch/templates/elasticsearch.init.conf.tpl
-{% elif grains['os'] == 'RedHat' %}
 /usr/lib/systemd/system/elasticsearch.service:
   file.managed:
     - source: salt://elasticsearch/templates/elasticsearch.service.tpl
-{% endif %}
     - mode: 644
     - template: jinja
     - context:
       installdir: {{ es_p.directory }}
       logdir: {{ es_p.logdir }}
-      datadir: {{ es_p.datadir }}
+      datadir: {{ flavor_cfg.datadir }}
       confdir: {{ es_p.confdir }}
       workdir: {{ es_p.workdir }}
       defaultconfig: {{ es_p.confdir }}/elasticsearch.yml
 
-{% if grains['os'] == 'RedHat' %}
 elasticsearch-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable elasticsearch
-{%- endif %}
 
 elasticsearch-start_service:
   cmd.run:

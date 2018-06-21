@@ -1,10 +1,13 @@
 {{ env }}:
 
   '*':
+    - volumes
     - tasks.system_update
     - motd
     - pnda.user
+    - identity.users
     - hostsfile
+    - service-self-registration
     - java
     - java.env
     - ntp
@@ -17,6 +20,10 @@
   'roles:kafka':
     - match: grain
     - kafka.server
+
+  'roles:kafka_tool':
+    - match: grain
+    - kafka-tool
 
   'roles:kafka_manager':
     - match: grain
@@ -66,10 +73,11 @@
     - match: grain
     - snappy
 
-  'cloudera:*':
+  'hadoop:*':
     - match: grain
     - cdh.create_data_dirs
     - snappy
+    - anaconda
 
   'roles:mysql_connector':
     - match: grain
@@ -83,15 +91,6 @@
     - match: grain
     - package-repository
 
-  'roles:pnda_restart':
+  'roles:deployment_manager':
     - match: grain
-    - reboot.install_restart
-
-  'roles:elk-es-*':
-   - match: grain
-   - elasticsearch-cluster
-
-  'roles:elk-logstash':
-   - match: grain
-   - logstash
-
+    - deployment-manager.generate_keys

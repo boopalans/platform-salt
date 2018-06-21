@@ -27,16 +27,15 @@ logserver-dl-and-extract:
   archive.extracted:
     - name: {{ install_dir }}
     - source: {{ logstash_url }}
-    - source_hash: {{ logstash_url }}.sha1.txt
+    - source_hash: {{ logstash_url }}.sha1
     - archive_format: tar
-    - tar_options: v
+    - tar_options: ''
     - if_missing: {{ install_dir }}/logstash-{{ logstash_version }}
 
 logserver-link_release:
-  cmd.run:
-    - name: ln -f -s {{ install_dir }}/logstash-{{ logstash_version }} {{ install_dir }}/logstash
-    - cwd: {{ install_dir }}
-    - unless: test -L {{ install_dir }}/logstash
+  file.symlink:
+    - name: {{ install_dir }}/logstash
+    - target: {{ install_dir }}/logstash-{{ logstash_version }}
 
 logserver-copy_configuration:
   file.managed:
@@ -69,36 +68,39 @@ logserver-add_crontab_entry2:
     - user: root
     - minute: 15
 
+logserver-add_crontab_entry3:
+  cron.present:
+    - identifier: DELETE-PLATFORM-APP-OLD
+    - name: /usr/bin/find /var/log/pnda -name 'platform_app*' -type f -mmin +4320 -delete
+    - user: root
+    - minute: 15
+
+logserver-add_crontab_entry4:
+  cron.present:
+    - identifier: DELETE-PLATFORM-APP-ZERO
+    - name: /usr/bin/find /var/log/pnda -name 'platform_app*' -type f -size 0 -delete
+    - user: root
+    - minute: 15
+
 logserver-create_log_folder:
   file.directory:
     - name: /var/log/pnda
     - user: root
-{% if grains['os'] == 'Ubuntu' %}
-    - group: syslog
-{% elif grains['os'] == 'RedHat' %}
     - group: root
-{% endif %}
     - mode: 777
     - makedirs: True
 
 logserver-copy_service:
   file.managed:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: /etc/init/logserver.conf
-    - source: salt://logserver/logserver_templates/logstash.conf.tpl
-{% elif grains['os'] == 'RedHat' %}
     - name: /usr/lib/systemd/system/logserver.service
     - source: salt://logserver/logserver_templates/logstash.service.tpl
-{% endif %}
     - template: jinja
     - defaults:
         install_dir: {{ install_dir }}
 
-{% if grains['os'] == 'RedHat' %}
 logserver-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable logserver
-{%- endif %}
 
 logserver-start_service:
   cmd.run:
@@ -106,8 +108,4 @@ logserver-start_service:
 
 logserver-redis-start_service:
   cmd.run:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: 'service redis-server stop || echo already stopped; service redis-server start'
-{% elif grains['os'] == 'RedHat' %}
     - name: 'service redis stop || echo already stopped; service redis start'
-{% endif %}

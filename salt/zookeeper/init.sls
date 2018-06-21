@@ -1,4 +1,5 @@
 {% set settings = salt['pillar.get']('zookeeper', {}) -%}
+{% set flavor_cfg = pillar['pnda_flavor']['states'][sls] %}
 
 {% set pnda_mirror = pillar['pnda_mirror']['base_url'] %}
 {% set misc_packages_path = pillar['pnda_mirror']['misc_packages_path'] %}
@@ -8,8 +9,18 @@
 {% set zookeeper_package = 'zookeeper-' + zookeeper_version + '.tar.gz' %}
 {% set zookeeper_url = mirror_location + zookeeper_package %}
 
+{% set nodes = [] %}
+{% include "zookeeper/nodes.sls" %}
+
+{%- set internal_ip = salt['network.interface_ip'](pillar["mine_functions"]["network.ip_addrs"][0]) -%}
+{% set myid = 0 %}
+{%- for node in nodes -%}
+{%- if node.fqdn == salt['grains.get']('id') -%}
+{% set myid = node.id %}
+{%- endif -%}
+{%- endfor -%}
+
 {% set install_dir = pillar['pnda']['homedir'] %}
-{% set zookeeper_data_dir = '/var/lib/zookeeper' %}
 
 zookeeper-user-group:
   group.present:
@@ -22,7 +33,7 @@ zookeeper-user-group:
 
 zookeeper-data-dir:
   file.directory:
-    - name: {{ zookeeper_data_dir }}
+    - name: {{ flavor_cfg.zookeeper_data_dir }}
     - user: zookeeper
     - group: zookeeper
     - mode: 755
@@ -40,15 +51,12 @@ zookeeper-dl-and-extract:
     - source: {{ zookeeper_url }}
     - source_hash: {{ zookeeper_url }}.sha1
     - archive_format: tar
-    - tar_options: v
+    - tar_options: ''
     - if_missing: {{ install_dir }}/zookeeper-{{ zookeeper_version }}
-
-{% set nodes = [] %}
-{% include "zookeeper/nodes.sls" %}
 
 zookeeper-myid:
   file.managed:
-    - name: {{ zookeeper_data_dir }}/myid
+    - name: {{ flavor_cfg.zookeeper_data_dir }}/myid
     - source: salt://zookeeper/files/templates/zookeeper-myid.tpl
     - template: jinja
     - context:
@@ -76,7 +84,7 @@ zookeeper-configuration:
           ip: {{ node.ip }}
           fqdn: {{ node.fqdn }}
       {%- endfor %}
-      data_dir: {{ zookeeper_data_dir }}
+      data_dir: {{ flavor_cfg.zookeeper_data_dir }}
     - mode: 644
 
 zookeeper-environment:
@@ -86,6 +94,7 @@ zookeeper-environment:
     - template: jinja
     - context:
       install_dir: {{ install_dir }}/zookeeper-{{ zookeeper_version }}
+      heap_size: {{ flavor_cfg.zookeeper_heapsize }}
     - mode: 644
 
 zookeeper-link:
@@ -95,18 +104,6 @@ zookeeper-link:
     - require:
       - archive: zookeeper-dl-and-extract
 
-{% if grains['os'] == 'Ubuntu' %}
-zookeeper-service:
-  file.managed:
-    - name: /etc/init/zookeeper.conf
-    - source: salt://zookeeper/files/templates/zookeeper.init.conf.tpl
-    - template: jinja
-    - context:
-      conf_dir: {{ install_dir }}/zookeeper-{{ zookeeper_version }}/conf
-    - mode: 644
-    - require:
-      - file: zookeeper-data-dir
-{% elif grains['os'] == 'RedHat' %}
 zookeeper-service_startpre:
     file.managed:
       - name: {{ install_dir }}/zookeeper-{{ zookeeper_version }}/bin/zookeeper-service-startpre.sh
@@ -139,14 +136,41 @@ zookeeper-systemd:
     - mode: 644
     - require:
       - file: zookeeper-data-dir
-{% endif %}
 
-{% if grains['os'] == 'RedHat' %}
 zookeeper-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable zookeeper
-{%- endif %}
 
 zookeeper-ensure-service-running:
   cmd.run:
     - name: 'service zookeeper stop || echo already stopped; service zookeeper start'
+
+zookeeper-pkg_install_netcat:
+  pkg.installed:
+    - name: {{ pillar['nmap-ncat']['package-name'] }}
+    - version: {{ pillar['nmap-ncat']['version'] }}
+    - ignore_epoch: True
+
+zookeeper-consul-check:
+  file.managed:
+    - name: {{ install_dir }}/zookeeper-{{ zookeeper_version }}/consul_check.sh
+    - source: salt://zookeeper/files/templates/consul_check.sh.tpl
+    - mode: 755
+    - template: jinja
+    - context:
+      netcat: ncat
+
+zookeeper-consul-register:
+  file.managed:
+    - name: /etc/consul.d/zookeeper.json
+    - source: salt://zookeeper/files/templates/consul.json.tpl
+    - template: jinja
+    - context:
+      myid: {{ myid }}
+      internal_ip: {{ internal_ip }}
+      zookeeper_check_script: {{ install_dir }}/zookeeper-{{ zookeeper_version }}/consul_check.sh
+
+zookeeper-consul-reload:
+  module.run:
+    - name: service.reload
+    - m_name: consul

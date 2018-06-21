@@ -7,8 +7,8 @@
 {% set logstash_version = pillar['logstash']['version'] %}
 {% set logstash_package = 'logstash-' + logstash_version + '.tar.gz' %}
 {% set logstash_url = mirror_location + logstash_package %}
-{% set plugin_pack_url = mirror_location + 'logstash_plugins.tar.gz' %}
-
+{% set plugin_pack_name = 'logstash-offline-plugins-6.2.1.zip' %}
+{% set plugin_pack_url = mirror_location + plugin_pack_name %}
 
 include:
   - java
@@ -24,27 +24,24 @@ logshipper-acl:
     - name: {{ pillar['acl']['package-name'] }}
     - version: {{ pillar['acl']['version'] }}
     - ignore_epoch: True
-    
+
 logshipper-dl-and-extract:
   archive.extracted:
     - name: {{ install_dir }}
     - source: {{ logstash_url }}
-    - source_hash: {{ logstash_url }}.sha1
+    - source_hash: {{ logstash_url }}.sha512
     - archive_format: tar
-    - tar_options: v
+    - tar_options: ''
     - if_missing: {{ install_dir }}/logstash-{{ logstash_version }}
 
 logshipper-link_release:
-  cmd.run:
-    - name: ln -f -s {{ install_dir }}/logstash-{{ logstash_version }} {{ install_dir }}/logstash
-    - cwd: {{ install_dir }}
-    - unless: test -L {{ install_dir }}/logstash
+  file.symlink:
+    - name: {{ install_dir }}/logstash
+    - target: {{ install_dir }}/logstash-{{ logstash_version }}
 
-{% if grains['os'] == 'RedHat' %}
 logshipper-journald-plugin:
   cmd.run:
-    - name: curl {{ plugin_pack_url }} > {{ install_dir }}/logstash/logstash_plugins.tar.gz; cd {{ install_dir }}/logstash; bin/logstash-plugin unpack logstash_plugins.tar.gz; bin/logstash-plugin install --local logstash-input-journald
-{% endif %}
+    - name: curl {{ plugin_pack_url }} > {{ install_dir }}/logstash/{{ plugin_pack_name }}; cd {{ install_dir }}/logstash; bin/logstash-plugin install file://{{ install_dir }}/logstash/{{ plugin_pack_name }};
 
 logshipper-copy_configuration:
   file.managed:
@@ -91,22 +88,15 @@ logshipper-create_sincedb_folder:
 
 logshipper-copy_service:
   file.managed:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: /etc/init/logshipper.conf
-    - source: salt://logserver/logshipper_templates/logstash.conf.tpl
-{% elif grains['os'] == 'RedHat' %}
     - name: /usr/lib/systemd/system/logshipper.service
     - source: salt://logserver/logshipper_templates/logstash.service.tpl
-{% endif %}
     - template: jinja
     - defaults:
         install_dir: {{ install_dir }}
 
-{% if grains['os'] == 'RedHat' %}
 logshipper-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable logshipper
-{%- endif %}
 
 logshipper-start_service:
   cmd.run:

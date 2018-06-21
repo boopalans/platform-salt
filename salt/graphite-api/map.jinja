@@ -1,10 +1,10 @@
 {% set config = salt['grains.filter_by']({
-    'Debian': {
-        'carbon_package': 'graphite-carbon',
-        'graphite_api_default': '/etc/default/graphite-api',
-        'graphite_api_default_src': 'graphite-api.debian'
-    },
     'RedHat': {
+        'carbon_package': 'python-carbon',
+        'graphite_api_default': '/etc/sysconfig/graphite-api',
+        'graphite_api_default_src': 'graphite-api.redhat'
+    },
+    'CentOS': {
         'carbon_package': 'python-carbon',
         'graphite_api_default': '/etc/sysconfig/graphite-api',
         'graphite_api_default_src': 'graphite-api.redhat'

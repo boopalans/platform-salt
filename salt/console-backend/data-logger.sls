@@ -4,7 +4,7 @@
 {% set install_dir = pillar['pnda']['homedir'] %}
 {% set app_dir = install_dir + '/console-backend-data-logger' %}
 {% set app_config_dir = app_dir + '/conf' %}
-{% set host_ip = salt['pnda.ip_addresses']('console_backend_data_logger')[0] %}
+{% set host_ip = salt['pnda.get_hosts_for_role']('console_backend_data_logger')[0] %}
 {% set backend_app_port = salt['pillar.get']('console_backend_data_logger:bind_port', '3001') %}
 {% set data_logger_log_file = '/var/log/pnda/console/data-logger.log' %}
 {% set data_logger_log_level = 'debug' %}
@@ -26,9 +26,9 @@ console-backend-dl-and-extract:
     - source: {{ packages_server }}/{{ backend_app_package }}
     - source_hash: {{ packages_server }}/{{ backend_app_package }}.sha512.txt
     - archive_format: tar
-    - tar_options: v
+    - tar_options: ''
     - if_missing: {{ install_dir }}/console-backend-data-logger-{{ backend_app_version }}
-    
+
 console-backend-symlink_data_logger_dir:
   file.symlink:
     - name: {{ app_dir }}
@@ -48,21 +48,16 @@ console-backend-create_data_logger_logger_conf:
 console-backend-install_backend_data_logger_app_dependencies:
   cmd.run:
     - cwd: {{ app_dir }}
-    - name: npm rebuild
+    - name: npm rebuild > /dev/null
     - require:
       - archive: nodejs-dl_and_extract_node
       - cmd: console-backend-install_utils_dependencies
-      
+
 # Create service script from template
 console-backend-copy_data_logger_service:
   file.managed:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: /etc/init/data-logger.conf
-    - source: salt://console-backend/templates/backend_nodejs_app.conf.tpl
-{% elif grains['os'] == 'RedHat' %}
     - name: /usr/lib/systemd/system/data-logger.service
     - source: salt://console-backend/templates/backend_nodejs_app.service.tpl
-{% endif %}
     - template: jinja
     - defaults:
         no_console_log: True
@@ -70,19 +65,13 @@ console-backend-copy_data_logger_service:
         backend_app_port: {{ backend_app_port }}
         app_dir: {{ app_dir }}
 
-{% if grains['os'] == 'RedHat' %}
 console-backend-data-logger-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable data-logger; /bin/systemctl enable redis
-{%- endif %}
 
 console-backend-redis_start:
   cmd.run:
-{% if grains['os'] == 'Ubuntu' %}
-    - name: 'service redis-server stop || echo already stopped; service redis-server start'
-{% elif grains['os'] == 'RedHat' %}
     - name: 'service redis stop || echo already stopped; service redis start'
-{% endif %}
 
 console-backend-data-logger-start_service:
   cmd.run:

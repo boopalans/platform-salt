@@ -1,5 +1,6 @@
 {% set ntp_servers = salt['pillar.get']('ntp:servers', []) %}
 {% set timezone = salt['pillar.get']('ntp:timezone', 'UTC') %}
+{% set ntp_service = pillar['ntp']['service_name'] %}
 
 ntp-set_timezone:
   timezone.system:
@@ -19,10 +20,21 @@ ntp-install_conf:
     - context:
       ntp_servers: {{ ntp_servers }}
 
-ntp-start_service:
+ntp-ntpdate_sync_on_boot_script:
+  file.managed:
+    - name: /etc/ntpdate.sh
+    - source: salt://ntp/files/ntpdate.sh
+    - mode: 0755
+    - template: jinja
+    - context:
+      ntp_service: {{ ntp_service }}
+      ntp_servers: {{ ntp_servers }}
+
+ntp-systemctl_reload:
   cmd.run:
-    {% if grains['os'] == 'RedHat' %}
-    - name: 'service ntpd stop || echo already stopped; service ntpd start'
-    {% elif grains['os'] == 'Ubuntu' %}
-    - name: 'service ntp stop || echo already stopped; service ntp start'
-    {% endif %}
+    - name: /bin/systemctl daemon-reload; /bin/systemctl enable {{ ntp_service }}; /bin/systemctl stop chronyd; /bin/systemctl disable chronyd; /bin/systemctl enable ntpdate;
+
+ntp-ntpdate-sync:
+  cmd.run:
+    - name: '/etc/ntpdate.sh'
+

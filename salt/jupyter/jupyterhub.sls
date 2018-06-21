@@ -24,6 +24,48 @@ jupyterhub-create_config_dir:
     - require:
       - pip: jupyterhub-install
 
+{% if pillar.jupyter is defined and pillar.jupyter.cert is defined and pillar.jupyter.key is defined and pillar.CA is defined and pillar.CA.cert is defined %}
+{% set jupyterhub_ssl_chain = jupyterhub_config_dir+'/jupyterhub.chain' %}
+{% set jupyterhub_ssl_key = jupyterhub_config_dir+'/jupyterhub.key' %}
+
+jupyterhub-create_ssl_cert:
+  file.managed:
+    - name: {{ jupyterhub_config_dir }}/jupyter.crt
+    - contents_pillar: jupyter:cert
+    - user: root
+    - group: pnda
+    - mode: 640
+
+jupyterhub-create_ssl_ca_cert:
+  file.managed:
+    - name: {{ jupyterhub_config_dir }}/ca.crt
+    - contents_pillar: CA:cert
+    - user: root
+    - group: pnda
+    - mode: 640
+
+jupyterhub-create_ssl_chain:
+  file.managed:
+    - name: {{ jupyterhub_ssl_chain }}
+    - source:
+      - {{ jupyterhub_config_dir }}/jupyter.crt
+      - {{ jupyterhub_config_dir }}/ca.crt
+    - user: root
+    - group: pnda
+    - mode: 640
+
+jupyterhub-create_ssl_key:
+  file.managed:
+    - name: {{ jupyterhub_ssl_key }}
+    - contents_pillar: jupyter:key
+    - user: root
+    - group: pnda
+    - mode: 640
+{% else %}
+{% set jupyterhub_ssl_chain = '\'\'' %}
+{% set jupyterhub_ssl_key = '\'\'' %}
+{% endif %}
+
 jupyterhub-create_configuration:
   file.managed:
     - name: {{ jupyterhub_config_dir }}/jupyterhub_config.py
@@ -31,6 +73,8 @@ jupyterhub-create_configuration:
     - template: jinja
     - context:
       virtual_env_dir: {{ virtual_env_dir }}
+      jupyterhub_ssl_cert: {{ jupyterhub_ssl_chain }}
+      jupyterhub_ssl_key: {{ jupyterhub_ssl_key }}
     - require:
       - file: jupyterhub-create_config_dir
 
@@ -49,7 +93,7 @@ jupyterhub-proxy-dl-and-extract:
 
 jupyterhub-proxy-rebuild:
   cmd.run:
-    - name: npm rebuild
+    - name: npm rebuild > /dev/null
     - cwd: {{ pnda_home_directory }}/configurable-http-proxy-{{ proxy_version }}
 
 jupyterhub-install-proxy-modules:
@@ -65,24 +109,17 @@ jupyterhub-install-proxy-command:
 # set up service script
 jupyterhub-copy_service:
   file.managed:
-{% if grains['os'] == 'Ubuntu' %}
-    - source: salt://jupyter/templates/jupyterhub.conf.tpl
-    - name: /etc/init/jupyterhub.conf
-{% elif grains['os'] == 'RedHat' %}
     - name: /usr/lib/systemd/system/jupyterhub.service
     - source: salt://jupyter/templates/jupyterhub.service.tpl
-{%- endif %}
     - mode: 644
     - template: jinja
     - context:
       jupyterhub_config_dir: {{ jupyterhub_config_dir }}
       virtual_env_dir: {{ virtual_env_dir }}
 
-{% if grains['os'] == 'RedHat' %}
 jupyterhub-systemctl_reload:
   cmd.run:
     - name: /bin/systemctl daemon-reload; /bin/systemctl enable jupyterhub
-{%- endif %}
 
 jupyterhub-service_started:
   cmd.run:
