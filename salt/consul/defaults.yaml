@@ -18,7 +18,6 @@ consul:
     encrypt: ""
     retry_join: []
     retry_interval: 30s
-    recursors: ["8.8.8.8"]
     datacenter: "{{ pillar['consul']['data_center'] }}"
     enable_script_checks: true
     ports:
